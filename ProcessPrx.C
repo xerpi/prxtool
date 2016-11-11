@@ -240,7 +240,7 @@ bool CProcessPrx::LoadImports()
 	imp_end =  m_modInfo.info.imp_end;
 	if(imp_base != 0)
 	{
-		while((imp_end - imp_base) >= sizeof(PspModuleImport2xx))
+		while((imp_end - imp_base) >= sizeof(PspModuleImport3xx))
 		{
 			u32 count;
 			PspModuleImport2xx *pImport;
@@ -745,7 +745,6 @@ bool CProcessPrx::LoadFromFile(const char *szFilename)
 		/* Do PRX specific stuff */
 		ElfSection *pInfoSect;
 		u8 *pData = NULL;
-		u32 iAddr = 0;
 
 		FreeMemory();
 		m_blPrxLoaded = false;
@@ -756,18 +755,18 @@ bool CProcessPrx::LoadFromFile(const char *szFilename)
 		if(pInfoSect == NULL)
 		{
 			//VITA
-			iAddr = (u32)m_elfHeader.iEntry & 0x3FFFFFFF;
-			pData = m_pElfBin + iAddr;
+			m_iAddr = (u32)m_elfHeader.iEntry & 0x3FFFFFFF;
+			pData = m_pElfBin + m_iAddr;
 		}
 		else
 		{
 			pData = pInfoSect->pData;
-			iAddr = pInfoSect->iAddr;
+			m_iAddr = pInfoSect->iAddr;
 		}
 
 		if(pData != NULL)
 		{
-			if((FillModule(pData, iAddr)) && (LoadRelocs()))
+			if((FillModule(pData, m_iAddr)) && (LoadRelocs()))
 			{
 				m_blPrxLoaded = true;
 				if(m_pElfRelocs)
@@ -808,7 +807,6 @@ bool CProcessPrx::LoadFromBinFile(const char *szFilename, unsigned int dwDataBas
 		m_blPrxLoaded = true;
 		
 		u8 *pData = NULL;
-		u32 iAddr = 0;
 
 		int iLoop;
 		for(iLoop = 0; iLoop < m_iSHCount; iLoop++)
@@ -825,9 +823,9 @@ bool CProcessPrx::LoadFromBinFile(const char *szFilename, unsigned int dwDataBas
 				while(addr < m_pElfSections[iLoop].iSize - 0x10)
 				{
 					if (*(u32 *)(pInst + addr + 0x0) == 0x00000000 &&
-						*(u32 *)(pInst + addr + 0x4) == 0x01010000) {
+						(*(u32 *)(pInst + addr + 0x4) == 0x01010000 || *(u32 *)(pInst + addr + 0x4) == 0x01010007)) {
 						pData = pInst + addr + 0x4;
-						iAddr = addr + 0x4;
+						m_iAddr = addr + 0x4;
 						break;
 					}
 
@@ -844,7 +842,7 @@ bool CProcessPrx::LoadFromBinFile(const char *szFilename, unsigned int dwDataBas
 							*(u32 *)(pInst + addr + 0x0C) == 0x00000000 &&
 							*(u32 *)(pInst + addr + 0x10) != 0xE3E00000) {
 							pData = pInst + addr + 0x10;
-							iAddr = addr + 0x10;
+							m_iAddr = addr + 0x10;
 							break;
 						}
 
@@ -854,9 +852,13 @@ bool CProcessPrx::LoadFromBinFile(const char *szFilename, unsigned int dwDataBas
 			}
 		}
 
+		COutput::Printf(LEVEL_INFO, "0x%08X, 0x%08X\n", m_iBinSize, m_dwBase);
+		
+		loadDisasm(m_pElfBin, m_iBinSize, m_dwBase);
+
 		if(pData != NULL)
 		{
-			FillModule(pData, iAddr);
+			FillModule(pData, m_iAddr);
 			LoadExports();
 			LoadImports();
 		}
@@ -1690,7 +1692,6 @@ void CProcessPrx::Disasm(FILE *fp, u32 dwAddr, u32 iSize, unsigned char *pData, 
 	u32 inst;
 	SymbolEntry *lastFunc = NULL;
 	unsigned int lastFuncAddr = 0;
-	int is_import = 0;
 
 	while(addr < iSize) {
 		SymbolEntry *s;
@@ -1748,7 +1749,6 @@ void CProcessPrx::Disasm(FILE *fp, u32 dwAddr, u32 iSize, unsigned char *pData, 
 									  unsigned int i;
 									  for(i = 0; i < s->imported.size(); i++)
 									  {
-										  is_import = 1;
 										  if((m_blXmlDump) && (strlen(s->imported[i]->file) > 0))
 										  {
 											  fprintf(fp, "; Imported from <a href=\"%s.html#%s_%s\">%s</a>\n", 
@@ -1885,14 +1885,8 @@ void CProcessPrx::Disasm(FILE *fp, u32 dwAddr, u32 iSize, unsigned char *pData, 
 			fprintf(fp, "<a name=\"0x%08X\"></a>", dwAddr);
 		}
 
-		if (is_import > 0 && is_import < 5) {
-			is_import++;
-		} else {
-			is_import = 0;
-		}
-
 		u32 old_dwAddr = dwAddr;
-		fprintf(fp, "\t%-40s\n", disasmInstruction(inst, &dwAddr, NULL, NULL, is_import > 0));
+		fprintf(fp, "\t%-40s\n", disasmInstruction(inst, &dwAddr, NULL, NULL, addr >= m_iAddr));
 		u32 diff = (dwAddr - old_dwAddr);
 		addr += diff;
 		if((lastFunc != NULL) && (dwAddr >= lastFuncAddr))

@@ -31,6 +31,7 @@ class CProcessPrx : public CProcessElf
 	u32 m_dwBase;
 	u32 m_stubBottom;
 	bool m_blXmlDump;
+	u32 m_iAddr;
 
 	bool FillModule(u8 *pData, u32 iAddr);
 	bool CreateFakeSections();

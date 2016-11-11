@@ -22,6 +22,7 @@ static int g_printswap = 0;
 static int g_signedhex = 0;
 static int g_xmloutput = 0;
 static SymbolMap *g_syms = NULL;
+static DisasmMap g_disasm;
 
 struct DisasmOpt
 {
@@ -49,6 +50,53 @@ void SetThumbMode(bool mode)
 	{
 		disasm_mode = (cs_mode)(CS_MODE_THUMB);
 	}
+}
+
+#include "output.h"
+
+void loadDisasm(uint8_t *code, int code_size, uint32_t address) {
+	cs_insn *insn;
+	size_t count;
+
+	int offset = 0;
+
+	static csh handle;
+	cs_err err = cs_open(CS_ARCH_ARM, CS_MODE_THUMB, &handle);
+	if (err) {
+		printf("Failed on cs_open() with error returned: %u\n", err);
+		return;
+	}
+
+	cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
+
+	while (offset < code_size) {
+		int size = 0x1000;
+		count = cs_disasm(handle, code + offset, size, address + offset, 0, &insn);
+		if (count) {
+			size_t j;
+			for (j = 0; j < count; j++) {
+
+				DisasmEntry *s = new DisasmEntry;
+				s->insn = &insn[j];
+
+				g_disasm[insn[j].address] = s;
+			}
+
+			size = insn[j-1].address + insn[j-1].size - insn[0].address;
+
+			// free memory allocated by cs_disasm()
+			// cs_free(insn, count);
+			
+			if (size == 0)
+				break;
+			
+			offset += size;
+		} else {
+			offset += 2;
+		}
+	}
+	
+	// cs_close(&handle);
 }
 
 SymbolType disasmResolveSymbol(unsigned int PC, char *name, int namelen)
@@ -116,95 +164,62 @@ int disasmIsBranch(unsigned int opcode, unsigned int *PC, unsigned int *dwTarget
 
 	int type = 0;
 
-	static csh handle;
-	cs_err err = cs_open(CS_ARCH_ARM, disasm_mode, &handle);
-	if (err) {
-		(*PC) += 4;
+	DisasmEntry *disasm = g_disasm[*PC];
+
+	if (!disasm) {
+		(*PC) += 2;
 		return 0;
 	}
+	cs_insn *insn = disasm->insn;
 
-	cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
-	cs_insn *insn;
-	size_t count = cs_disasm(handle, (unsigned char *)&opcode, 4, *PC, 0, &insn);
-	size_t ori_count = count;
-	if (count) {
-		if (count == 1) {
-			cs_insn *insn2;
-			int count2 = cs_disasm(handle, (unsigned char *)&opcode, 2, *PC, 0, &insn2);
-			if (count2 == 1) {
-				if (strcmp(insn->mnemonic, insn2->mnemonic) == 0 && strcmp(insn->op_str, insn2->op_str) == 0) {
-					count = 2;
-				}
-			}
+	(*PC) += insn->size;
 
-			cs_free(insn2, count2);
-		}
+	cs_arm *arm = &(insn->detail->arm);
 
-		if (disasm_mode == (cs_mode)(CS_MODE_THUMB)) {
-			if (count == 2) {
-				(*PC) += 2;
-				opcode = opcode & 0xFFFF;
-			} else {
-				(*PC) += 4;
-			}
-		} else {
-			(*PC) += 4;
-		}
-
-		cs_arm *arm = &(insn->detail->arm);
-
-		int i;
-		for (i = 0; i < arm->op_count; i++) {
-			cs_arm_op *op = &(arm->operands[i]);
-			switch((int)op->type) {
-				default:
-					break;
-				case ARM_OP_IMM:
+	int i;
+	for (i = 0; i < arm->op_count; i++) {
+		cs_arm_op *op = &(arm->operands[i]);
+		switch((int)op->type) {
+			default:
+				break;
+			case ARM_OP_IMM:
+			{
+				if(insn->mnemonic[0] == 'b')
 				{
-					if(insn->mnemonic[0] == 'b')
-					{
-						if (strcmp(insn->mnemonic, "bfi") != 0 && strcmp(insn->mnemonic, "bkpt") != 0 && strncmp(insn->mnemonic, "bic", 3) != 0) {
-							type = INSTR_TYPE_LOCAL;
-							
-							if (strcmp(insn->mnemonic, "bl") == 0 || strcmp(insn->mnemonic, "blx") == 0) {
-								type = INSTR_TYPE_FUNC;
-							}
-
-							if(dwTarget)
-							{
-								if (strcmp(insn->mnemonic, "blx") == 0) {
-									if (old_PC & 0x2) {
-										op->imm -= 4;
-									}
-								}
-
-								*dwTarget = op->imm;
-							}
-						}
-					}
-					else if(insn->mnemonic[0] == 'c' && insn->mnemonic[1] == 'b')
-					{
+					if (strcmp(insn->mnemonic, "bfi") != 0 && strcmp(insn->mnemonic, "bkpt") != 0 && strncmp(insn->mnemonic, "bic", 3) != 0) {
 						type = INSTR_TYPE_LOCAL;
 						
+						if (strcmp(insn->mnemonic, "bl") == 0 || strcmp(insn->mnemonic, "blx") == 0) {
+							type = INSTR_TYPE_FUNC;
+						}
+
 						if(dwTarget)
 						{
+							if (strcmp(insn->mnemonic, "blx") == 0) {
+								if (old_PC & 0x2) {
+									// op->imm -= 4;
+								}
+							}
+
 							*dwTarget = op->imm;
 						}
 					}
-					
-					break;
 				}
+				else if(insn->mnemonic[0] == 'c' && insn->mnemonic[1] == 'b')
+				{
+					type = INSTR_TYPE_LOCAL;
+					
+					if(dwTarget)
+					{
+						*dwTarget = op->imm;
+					}
+				}
+				
+				break;
 			}
 		}
-		
-		// free memory allocated by cs_disasm()
-		cs_free(insn, ori_count);
-	} else {
-		(*PC) += 4;
 	}
-
-	cs_close(&handle);
 
 	return type;
 }
@@ -266,85 +281,56 @@ int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size
 {
 	int type = 0;
 
-	static csh handle;
-	cs_err err = cs_open(CS_ARCH_ARM, disasm_mode, &handle);
-	if (err) {
+	DisasmEntry *disasm = g_disasm[PC];
+
+	if (!disasm) {
 		return 0;
 	}
 
-	cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
+	cs_insn *insn = disasm->insn;
+	cs_arm *arm = &(insn->detail->arm);
 
-	cs_insn *insn;
-	size_t count = cs_disasm(handle, (unsigned char *)&opcode, 4, PC, 0, &insn);
-	size_t ori_count = count;
-	if (count) {
-		if (count == 1) {
-			cs_insn *insn2;
-			int count2 = cs_disasm(handle, (unsigned char *)&opcode, 2, PC, 0, &insn2);
-			if (count2 == 1) {
-				if (strcmp(insn->mnemonic, insn2->mnemonic) == 0 && strcmp(insn->op_str, insn2->op_str) == 0) {
-					count = 2;
-				}
+	if (strcmp(insn->mnemonic, "movw") == 0 || strcmp(insn->mnemonic, "movs.w") == 0) {
+		int slot = ((cs_arm_op *)&(arm->operands[0]))->imm;
+		int val = ((cs_arm_op *)&(arm->operands[1]))->imm;
+		movw[slot] = val;
+
+		if (movt[slot] != 0) {
+			unsigned int addr = (movt[slot] << 16) | (movw[slot] & 0xFFFF);
+			if (addr >= base && addr < base + size) {
+				ImmEntry *imm = new ImmEntry;
+				imm->addr = PC;
+				imm->target = addr;
+				imm->text = 0;
+				imms[PC] = imm;
 			}
 
-			cs_free(insn2, count2);
+			movw[slot] = 0;
+			movt[slot] = 0;
 		}
+	} else if (strcmp(insn->mnemonic, "movt") == 0) {
+		int slot = ((cs_arm_op *)&(arm->operands[0]))->imm;
+		int val = ((cs_arm_op *)&(arm->operands[1]))->imm;
+		movt[slot] = val;
 
-		if (disasm_mode == (cs_mode)(CS_MODE_THUMB)) {
-			if (count == 2) {
-				opcode = opcode & 0xFFFF;
+		if (movw[slot] != 0) {
+			unsigned int addr = (movt[slot] << 16) | (movw[slot] & 0xFFFF);
+			if (addr >= base && addr < base + size) {					
+				ImmEntry *imm = new ImmEntry;
+				imm->addr = PC;
+				imm->target = addr;
+				imm->text = 0;
+				imms[PC] = imm;
 			}
+
+			movw[slot] = 0;
+			movt[slot] = 0;
 		}
-
-		cs_arm *arm = &(insn->detail->arm);
-
-		if (strcmp(insn->mnemonic, "movw") == 0 || strcmp(insn->mnemonic, "movs.w") == 0) {
-			int slot = ((cs_arm_op *)&(arm->operands[0]))->imm;
-			int val = ((cs_arm_op *)&(arm->operands[1]))->imm;
-			movw[slot] = val;
-
-			if (movt[slot] != 0) {
-				unsigned int addr = (movt[slot] << 16) | (movw[slot] & 0xFFFF);
-				if (addr >= base && addr < base + size) {
-					ImmEntry *imm = new ImmEntry;
-					imm->addr = PC;
-					imm->target = addr;
-					imm->text = 0;
-					imms[PC] = imm;
-				}
-
-				movw[slot] = 0;
-				movt[slot] = 0;
-			}
-		} else if (strcmp(insn->mnemonic, "movt") == 0) {
-			int slot = ((cs_arm_op *)&(arm->operands[0]))->imm;
-			int val = ((cs_arm_op *)&(arm->operands[1]))->imm;
-			movt[slot] = val;
-
-			if (movw[slot] != 0) {
-				unsigned int addr = (movt[slot] << 16) | (movw[slot] & 0xFFFF);
-				if (addr >= base && addr < base + size) {					
-					ImmEntry *imm = new ImmEntry;
-					imm->addr = PC;
-					imm->target = addr;
-					imm->text = 0;
-					imms[PC] = imm;
-				}
-
-				movw[slot] = 0;
-				movt[slot] = 0;
-			}
-		}
-
-		if (strcmp(insn->mnemonic, "bl") == 0 || strcmp(insn->mnemonic, "blx") == 0) {
-			resetMovwMovt();
-		}
-
-		// free memory allocated by cs_disasm()
-		cs_free(insn, ori_count);
 	}
 
-	cs_close(&handle);
+	if (strcmp(insn->mnemonic, "bl") == 0 || strcmp(insn->mnemonic, "blx") == 0) {
+		resetMovwMovt();
+	}
 
 	return type;
 }
@@ -552,105 +538,64 @@ const char *disasmInstruction(unsigned int opcode, unsigned int *PC, unsigned in
 		}
 	}
 
-	cs_mode old_disasm_mode = disasm_mode;
+	DisasmEntry *disasm = g_disasm[*PC];
 
-	if (nothumb) {
-		disasm_mode = (cs_mode)(CS_MODE_ARM);
+	if (nothumb || !disasm) {
+		*(PC) += 4;
+		format_line(code, sizeof(code), addr, opcode, name, args, 0);
+		return code;
 	}
 
-	static csh handle;
-	cs_err err = cs_open(CS_ARCH_ARM, disasm_mode, &handle);
-	if (err) {
-		(*PC) += 4;
-		disasm_mode = old_disasm_mode;
-		return NULL;
+	cs_insn *insn = disasm->insn;
+
+	strcpy(mnemonic, insn->mnemonic);
+	strcpy(args, insn->op_str);
+	
+	name = mnemonic;
+
+	// Replace registers
+	for(i = 0; i < strlen(insn->op_str); i++)
+	{
+		int j;
+		for(j = 0; j < sizeof(registers) / sizeof(Register); j++)
+		{
+			if(strncmp(args + i, registers[j].old_reg, 2) == 0 && args[i - 1] != 'l')
+			{
+				memcpy(args + i, registers[j].new_reg, 2);
+				break;
+			}
+		}
 	}
 
-	cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
-
-	cs_insn *insn;
-	size_t count = cs_disasm(handle, (unsigned char *)&opcode, 4, *PC, 0, &insn);
-	size_t ori_count = count;
-	if (count) {
-		if (count == 1) {
-			cs_insn *insn2;
-			int count2 = cs_disasm(handle, (unsigned char *)&opcode, 2, *PC, 0, &insn2);
-			if (count2 == 1) {
-				if (strcmp(insn->mnemonic, insn2->mnemonic) == 0 && strcmp(insn->op_str, insn2->op_str) == 0) {
-					count = 2;
-				}
-			}
-			
-			cs_free(insn2, count2);
-		}
-
-		strcpy(mnemonic, insn->mnemonic);
-		strcpy(args, insn->op_str);
-		
-		name = mnemonic;
-
-		// Replace registers
-		int i;
-		for(i = 0; i < strlen(insn->op_str); i++)
+	// Branch names
+	unsigned int x;
+	u32 lol = *PC;
+	int insttype = disasmIsBranch(opcode, &lol, &x);
+	if(insttype != 0)
+	{
+		if(g_syms)
 		{
-			int j;
-			for(j = 0; j < sizeof(registers) / sizeof(Register); j++)
-			{
-				if(strncmp(args + i, registers[j].old_reg, 2) == 0)
-				{
-					memcpy(args + i, registers[j].new_reg, 2);
-					break;
+			char args_resolved[1024];
+			disasmResolveSymbol(x, args_resolved, sizeof(args_resolved));
+			if(insn->mnemonic[0] == 'c' && insn->mnemonic[1] == 'b') {
+				char temp[1024];
+				strcpy(temp, args);
+				char *p = strchr(temp, '#');
+				if (p) {
+					strcpy(p, args_resolved);
 				}
-			}
-		}
 
-		// Branch names
-		unsigned int addr;
-		u32 lol = *PC;
-		int insttype = disasmIsBranch(opcode, &lol, &addr);
-		if(insttype != 0)
-		{
-			if(g_syms)
-			{
-				char args_resolved[1024];
-				disasmResolveSymbol(addr, args_resolved, sizeof(args_resolved));
-				if(insn->mnemonic[0] == 'c' && insn->mnemonic[1] == 'b') {
-					char temp[1024];
-					strcpy(temp, args);
-					char *p = strchr(temp, '#');
-					if (p) {
-						strcpy(p, args_resolved);
-					}
-
-					strcpy(args, temp);
-				} else {
-					strcpy(args, args_resolved);
-				}
-			}
-		}
-
-		if (disasm_mode == (cs_mode)(CS_MODE_THUMB)) {
-			if (count == 2) {
-				(*PC) += 2;
-				opcode = opcode & 0xFFFF;
+				strcpy(args, temp);
 			} else {
-				(*PC) += 4;
+				strcpy(args, args_resolved);
 			}
-		} else {
-			(*PC) += 4;
 		}
-
-		// free memory allocated by cs_disasm()
-		cs_free(insn, ori_count);
-	} else {
-		(*PC) += 4;
 	}
 
-	cs_close(&handle);
+	*(PC) += insn->size;
 
 	format_line(code, sizeof(code), addr, opcode, name, args, 0);
 
-	disasm_mode = old_disasm_mode;
 	return code;
 }
 

@@ -48,6 +48,15 @@ struct ImmEntry
 
 typedef std::map<unsigned int, ImmEntry *> ImmMap;
 
+#include <capstone/capstone.h>
+
+struct DisasmEntry
+{
+	cs_insn *insn;
+};
+
+typedef std::map<unsigned int, DisasmEntry *> DisasmMap;
+
 #define DISASM_OPT_MAX       8
 #define DISASM_OPT_HEXINTS   'x'
 #define DISASM_OPT_MREGS     'r'
@@ -86,5 +95,7 @@ int disasmIsBranch(unsigned int opcode, unsigned int PC, unsigned int *dwTarget)
 void disasmSetXmlOutput();
 int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size, unsigned int PC, ImmMap &imms);
 void resetMovwMovt();
+
+void loadDisasm(uint8_t *code, int code_size, uint32_t address);
 
 #endif
