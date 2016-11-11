@@ -55,6 +55,8 @@ static bool g_xmlOutput = false;
 static bool g_aliasOutput = false;
 static const char *g_pDbTitle;
 static unsigned int g_database = 0;
+static u32 g_data_addr = 0;
+static u32 g_data_size = 0;
 
 static bool g_thumbMode = false;
 
@@ -142,6 +144,10 @@ static struct ArgEntry cmd_options[] = {
 		"        : Specify the offset of the data section in the file for binary disassembly"},
 	{"reloc", 'r', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_dwBase, 0, 
 		"addr    : Relocate the PRX to a different address"},
+	{"data address", 'D', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_data_addr, 0, 
+		"addr    : Data address"},
+	{"data size", 'S', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_data_size, 0, 
+		"addr    : Data size"},
 	{"symbols", 'y', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_SYMBOLS, 
 		"Output a symbol file based on the input file"},
 	{"funcs", 'z', ARG_TYPE_STR, ARG_OPT_REQUIRED, (void*) &g_pFuncfile, 0, 
@@ -244,7 +250,7 @@ void print_help()
 
 void output_elf(const char *file, FILE *out_fp)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 
 	COutput::Printf(LEVEL_INFO, "Loading %s\n", file);
 	if(prx.LoadFromFile(file) == false)
@@ -272,7 +278,7 @@ int compare_symbols(const void *left, const void *right)
 
 void output_symbols(const char *file, FILE *out_fp)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 
 	COutput::Printf(LEVEL_INFO, "Loading %s\n", file);
 	if(prx.LoadFromFile(file) == false)
@@ -354,7 +360,7 @@ void output_symbols(const char *file, FILE *out_fp)
 
 void output_disasm(const char *file, FILE *out_fp, CNidMgr *nids)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 	bool blRet;
 
 	SetThumbMode(g_thumbMode);
@@ -387,7 +393,7 @@ void output_disasm(const char *file, FILE *out_fp, CNidMgr *nids)
 
 void output_xmldb(const char *file, FILE *out_fp, CNidMgr *nids)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 	bool blRet;
 
 	COutput::Printf(LEVEL_INFO, "Loading %s\n", file);
@@ -413,7 +419,7 @@ void output_xmldb(const char *file, FILE *out_fp, CNidMgr *nids)
 
 void serialize_file(const char *file, CSerializePrx *pSer, CNidMgr *pNids)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 	bool blRet;
 
 	assert(pSer != NULL);
@@ -442,7 +448,7 @@ void serialize_file(const char *file, CSerializePrx *pSer, CNidMgr *pNids)
 
 void output_mods(const char *file, CNidMgr *pNids)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 
 	prx.SetNidMgr(pNids);
 	if(prx.LoadFromFile(file) == false)
@@ -489,7 +495,7 @@ void output_mods(const char *file, CNidMgr *pNids)
 
 void output_importexport(const char *file, CNidMgr *pNids)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 	int iLoop;
 
 	prx.SetNidMgr(pNids);
@@ -601,7 +607,7 @@ void output_importexport(const char *file, CNidMgr *pNids)
 
 void output_deps(const char *file, CNidMgr *pNids)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 
 	prx.SetNidMgr(pNids);
 	if(prx.LoadFromFile(file) == false)
@@ -798,7 +804,7 @@ void write_stub_new(const char *szDirectory, PspLibExport *pExp, CProcessPrx *pP
 
 void output_stubs_prx(const char *file, CNidMgr *pNids)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 
 	prx.SetNidMgr(pNids);
 	if(prx.LoadFromFile(file) == false)
@@ -831,7 +837,7 @@ void output_stubs_prx(const char *file, CNidMgr *pNids)
 
 void output_ents(const char *file, CNidMgr *pNids, FILE *f)
 {
-	CProcessPrx prx(g_dwBase);
+	CProcessPrx prx(g_dwBase, g_data_addr, g_data_size);
 
 	prx.SetNidMgr(pNids);
 	if(prx.LoadFromFile(file) == false)

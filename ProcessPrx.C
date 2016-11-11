@@ -23,13 +23,15 @@
 /* Minimum string size */
 #define MINIMUM_STRING 4
 
-CProcessPrx::CProcessPrx(u32 dwBase)
+CProcessPrx::CProcessPrx(u32 dwBase, u32 data_addr, u32 data_size)
 	: CProcessElf()
 	, m_defNidMgr()
 	, m_pCurrNidMgr(&m_defNidMgr)
 	, m_pElfRelocs(NULL)
 	, m_iRelocCount(0)
 	, m_dwBase(dwBase)
+	, m_data_addr(data_addr)
+	, m_data_size(data_size)
 	, m_blXmlDump(false)
 {
 	memset(&m_modInfo, 0, sizeof(PspModule));
@@ -2068,8 +2070,8 @@ bool CProcessPrx::BuildMaps()
 
 				addr += diff;
 				dwAddr += diff;
-				
-				disasmAddStringRef(inst, m_pElfSections[iLoop].iAddr + m_dwBase, m_pElfSections[iLoop].iSize, old_PC, m_imms);
+
+				disasmAddStringRef(inst, m_pElfSections[iLoop].iAddr + m_dwBase, m_pElfSections[iLoop].iSize, old_PC, m_imms, m_syms, m_dwBase + m_iAddr, m_data_addr, m_data_size);
 			}
 		}
 	}

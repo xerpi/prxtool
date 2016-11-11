@@ -93,7 +93,7 @@ SymbolType disasmResolveSymbol(unsigned int PC, char *name, int namelen);
 SymbolEntry* disasmFindSymbol(unsigned int PC);
 int disasmIsBranch(unsigned int opcode, unsigned int PC, unsigned int *dwTarget);
 void disasmSetXmlOutput();
-int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size, unsigned int PC, ImmMap &imms);
+int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size, unsigned int PC, ImmMap &imms, SymbolMap &syms, int data_addr, u32 data_base, u32 data_base_size);
 void resetMovwMovt();
 
 void loadDisasm(uint8_t *code, int code_size, uint32_t address);

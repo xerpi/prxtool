@@ -29,6 +29,8 @@ class CProcessPrx : public CProcessElf
 	ImmMap m_imms;
 	SymbolMap m_syms;
 	u32 m_dwBase;
+	u32 m_data_addr;
+	u32 m_data_size;
 	u32 m_stubBottom;
 	bool m_blXmlDump;
 	u32 m_iAddr;
@@ -60,7 +62,7 @@ class CProcessPrx : public CProcessElf
 	bool OutputSections(FILE *fp, size_t iElfHeadSize, size_t iSectCount, size_t iStrSize);
 
 public:
-	CProcessPrx(u32 dwBase);
+	CProcessPrx(u32 dwBase, u32 data_addr, u32 data_size);
 	virtual ~CProcessPrx();
 	virtual bool LoadFromFile(const char *szFilename);
 	virtual bool LoadFromBinFile(const char *szFilename, unsigned int dwDataBase);

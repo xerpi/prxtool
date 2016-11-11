@@ -277,7 +277,7 @@ void resetMovwMovt() {
 	memset(movt, 0, sizeof(movt));
 }
 
-int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size, unsigned int PC, ImmMap &imms)
+int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size, unsigned int PC, ImmMap &imms, SymbolMap &syms, int data_addr, u32 data_base, u32 data_base_size)
 {
 	int type = 0;
 
@@ -297,7 +297,36 @@ int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size
 
 		if (movt[slot] != 0) {
 			unsigned int addr = (movt[slot] << 16) | (movw[slot] & 0xFFFF);
+
 			if (addr >= base && addr < base + size) {
+				if (addr < data_addr) {
+					addr--;
+
+					SymbolType type;
+					SymbolEntry *s;
+					char buf[128];
+
+					snprintf(buf, sizeof(buf), "sub_%08X", addr);
+					type = SYMBOL_FUNC;
+
+					s = syms[addr];
+					if(s == NULL)
+					{
+						s = new SymbolEntry;
+						s->addr = addr;
+						s->type = type;
+						s->size = 0;
+						s->name = buf;
+						syms[addr] = s;
+					}
+				}
+
+				ImmEntry *imm = new ImmEntry;
+				imm->addr = PC;
+				imm->target = addr;
+				imm->text = 0;
+				imms[PC] = imm;
+			} else if (addr >= data_base && addr < data_base + data_base_size) {
 				ImmEntry *imm = new ImmEntry;
 				imm->addr = PC;
 				imm->target = addr;
@@ -315,7 +344,36 @@ int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size
 
 		if (movw[slot] != 0) {
 			unsigned int addr = (movt[slot] << 16) | (movw[slot] & 0xFFFF);
-			if (addr >= base && addr < base + size) {					
+			
+			if (addr >= base && addr < base + size) {
+				if (addr < data_addr) {
+					addr--;
+
+					SymbolType type;
+					SymbolEntry *s;
+					char buf[128];
+
+					snprintf(buf, sizeof(buf), "sub_%08X", addr);
+					type = SYMBOL_FUNC;
+
+					s = syms[addr];
+					if(s == NULL)
+					{
+						s = new SymbolEntry;
+						s->addr = addr;
+						s->type = type;
+						s->size = 0;
+						s->name = buf;
+						syms[addr] = s;
+					}
+				}
+
+				ImmEntry *imm = new ImmEntry;
+				imm->addr = PC;
+				imm->target = addr;
+				imm->text = 0;
+				imms[PC] = imm;
+			} else if (addr >= data_base && addr < data_base + data_base_size) {
 				ImmEntry *imm = new ImmEntry;
 				imm->addr = PC;
 				imm->target = addr;
