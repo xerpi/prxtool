@@ -948,7 +948,8 @@ int main(int argc, char **argv)
 
 		if(g_pNamefile != NULL)
 		{
-			(void) nids.AddNIDFile(g_pNamefile);
+			if (!nids.AddNIDFile(g_pNamefile))
+				exit(1);
 		}
 		if(g_pFuncfile != NULL)
 		{
