@@ -80,8 +80,8 @@ int do_serialize(const char *arg)
 						break;
 			case 'l' : g_iSMask |= SERIALIZE_DOSYSLIB;
 						break;
-			default:   COutput::Printf(LEVEL_WARNING, 
-							"Unknown serialize option '%c'\n", 
+			default:   COutput::Printf(LEVEL_WARNING,
+							"Unknown serialize option '%c'\n",
 							tolower(arg[i]));
 					   return 0;
 		};
@@ -100,59 +100,59 @@ int do_xmldb(const char *arg)
 }
 
 static struct ArgEntry cmd_options[] = {
-	{"output", 'o', ARG_TYPE_STR, ARG_OPT_REQUIRED, (void*) &g_pOutfile, 0, 
+	{"output", 'o', ARG_TYPE_STR, ARG_OPT_REQUIRED, (void*) &g_pOutfile, 0,
 		"outfile : Outputfile. If not specified uses stdout"},
-	{"idcout", 'c', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_IDC, 
+	{"idcout", 'c', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_IDC,
 		"        : Output an IDC file (default)"},
-	{"mapout", 'a', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_MAP, 
+	{"mapout", 'a', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_MAP,
 		"        : Output a MAP file"},
-	{"xmlout", 'x', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_XML, 
+	{"xmlout", 'x', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_XML,
 		"        : Output an XML file"},
-	{"elfout", 'e', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_ELF, 
+	{"elfout", 'e', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_ELF,
 		"        : Output an ELF from a PRX"},
 	{"debug", 'd', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_blDebug, true,
 		"        : Enable debug mode"},
-	{"serial", 's', ARG_TYPE_FUNC, ARG_OPT_REQUIRED, (void*) &do_serialize, 0, 
+	{"serial", 's', ARG_TYPE_FUNC, ARG_OPT_REQUIRED, (void*) &do_serialize, 0,
 		"ixrsl   : Specify what to serialize (Imports,Exports,Relocs,Sections,SyslibExp)"},
-	{"xmlfile", 'n', ARG_TYPE_STR, ARG_OPT_REQUIRED, (void*) &g_pNamefile, 0, 
+	{"xmlfile", 'n', ARG_TYPE_STR, ARG_OPT_REQUIRED, (void*) &g_pNamefile, 0,
 		"imp.xml : Specify a XML file containing the NID tables"},
-	{"xmldis", 'g', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_xmlOutput, true, 
+	{"xmldis", 'g', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_xmlOutput, true,
 		"        : Enable XML disassembly output mode"},
 	{"xmldb",  'w', ARG_TYPE_FUNC, ARG_OPT_REQUIRED, (void*) &do_xmldb, 0,
 		"title   : Output the PRX(es) as an XML database disassembly with a title" },
-	{"stubs", 't', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_STUB, 
+	{"stubs", 't', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_STUB,
 		"        : Emit stub files for the XML file passed on the command line"},
-	{"prxstubs", 'u', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_PSTUB, 
+	{"prxstubs", 'u', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_PSTUB,
 		"        : Emit stub files based on the exports of the specified PRX files" },
-	{"newstubs", 'k', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_newstubs, true, 
+	{"newstubs", 'k', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_newstubs, true,
 		"        : Emit new style stubs for the SDK"},
-	{"depends", 'q', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_DEP, 
+	{"depends", 'q', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_DEP,
 		"        : Print PRX dependencies. (Should have loaded an XML file to be useful"},
-	{"modinfo", 'm', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_MOD, 
+	{"modinfo", 'm', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_MOD,
 		"        : Print the module and library information to screen"},
-	{"impexp", 'f', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_IMPEXP, 
+	{"impexp", 'f', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_IMPEXP,
 		"        : Print the imports and exports of a prx"},
 	{"exports", 'p', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_ENT,
 		"        : Output an export file (.exp)"},
-	{"disasm", 'w', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_DISASM, 
+	{"disasm", 'w', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_DISASM,
 		"        : Disasm the executable sections of the files (if more than one file output name is automatic)"},
-	{"thumbmode", 'i', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_thumbMode, true, 
+	{"thumbmode", 'i', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_thumbMode, true,
 		"        : Set to thumb mode"},
-	{"binary", 'b', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_loadbin, true, 
+	{"binary", 'b', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_loadbin, true,
 		"        : Load the file as binary for disassembly"},
-	{"database", 'l', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_database, 0, 
+	{"database", 'l', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_database, 0,
 		"        : Specify the offset of the data section in the file for binary disassembly"},
-	{"reloc", 'r', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_dwBase, 0, 
+	{"reloc", 'r', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_dwBase, 0,
 		"addr    : Relocate the PRX to a different address"},
-	{"data address", 'D', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_data_addr, 0, 
+	{"data address", 'D', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_data_addr, 0,
 		"addr    : Data address"},
-	{"data size", 'S', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_data_size, 0, 
+	{"data size", 'S', ARG_TYPE_INT, ARG_OPT_REQUIRED, (void*) &g_data_size, 0,
 		"addr    : Data size"},
-	{"symbols", 'y', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_SYMBOLS, 
+	{"symbols", 'y', ARG_TYPE_INT, ARG_OPT_NONE, (void*) &g_outputMode, OUTPUT_SYMBOLS,
 		"Output a symbol file based on the input file"},
-	{"funcs", 'z', ARG_TYPE_STR, ARG_OPT_REQUIRED, (void*) &g_pFuncfile, 0, 
+	{"funcs", 'z', ARG_TYPE_STR, ARG_OPT_REQUIRED, (void*) &g_pFuncfile, 0,
 		"        : Specify a functions file for disassembly"},
-	{"alias", 'A', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_aliasOutput, true, 
+	{"alias", 'A', ARG_TYPE_BOOL, ARG_OPT_NONE, (void*) &g_aliasOutput, true,
 		"        : Print aliases when using -f mode" },
 };
 
@@ -185,7 +185,7 @@ void init_arguments()
 	g_iSMask = SERIALIZE_ALL & ~SERIALIZE_SECTIONS;
 	g_newstubs = 0;
 	g_dwBase = 0;
-	
+
 	g_thumbMode = false;
 
 	memset(g_namepath, 0, sizeof(g_namepath));
@@ -466,7 +466,7 @@ void output_mods(const char *file, CNidMgr *pNids)
 		COutput::Puts(LEVEL_INFO, "Module information\n");
 		COutput::Printf(LEVEL_INFO, "Name:    %s\n", pMod->name);
 		COutput::Printf(LEVEL_INFO, "Attrib:  %04X\n", pMod->info.flags & 0xFFFF);
-		COutput::Printf(LEVEL_INFO, "Version: %d.%d\n", 
+		COutput::Printf(LEVEL_INFO, "Version: %d.%d\n",
 				(pMod->info.flags >> 24) & 0xFF, (pMod->info.flags >> 16) & 0xFF);
 		COutput::Printf(LEVEL_INFO, "GP:      %08X\n", pMod->info.gp);
 
@@ -475,7 +475,7 @@ void output_mods(const char *file, CNidMgr *pNids)
 		count = 0;
 		while(pExport != NULL)
 		{
-			COutput::Printf(LEVEL_INFO, "Export %d, Name %s, Functions %d, Variables %d, flags %08X\n", 
+			COutput::Printf(LEVEL_INFO, "Export %d, Name %s, Functions %d, Variables %d, flags %08X\n",
 					count++, pExport->name, pExport->f_count, pExport->v_count, pExport->stub.flags);
 			pExport = pExport->next;
 		}
@@ -485,7 +485,7 @@ void output_mods(const char *file, CNidMgr *pNids)
 		count = 0;
 		while(pImport != NULL)
 		{
-			COutput::Printf(LEVEL_INFO, "Import %d, Name %s, Functions %d, Variables %d, flags %08X\n", 
+			COutput::Printf(LEVEL_INFO, "Import %d, Name %s, Functions %d, Variables %d, flags %08X\n",
 					count++, pImport->name, pImport->f_count, pImport->v_count, pImport->stub.flags);
 			pImport = pImport->next;
 		}
@@ -514,7 +514,7 @@ void output_importexport(const char *file, CNidMgr *pNids)
 		COutput::Puts(LEVEL_INFO, "Module information\n");
 		COutput::Printf(LEVEL_INFO, "Name:    %s\n", pMod->name);
 		COutput::Printf(LEVEL_INFO, "Attrib:  %04X\n", pMod->info.flags & 0xFFFF);
-		COutput::Printf(LEVEL_INFO, "Version: %d.%d\n", 
+		COutput::Printf(LEVEL_INFO, "Version: %d.%d\n",
 				(pMod->info.flags >> 24) & 0xFF, (pMod->info.flags >> 16) & 0xFF);
 		COutput::Printf(LEVEL_INFO, "GP:      %08X\n", pMod->info.gp);
 
@@ -523,7 +523,7 @@ void output_importexport(const char *file, CNidMgr *pNids)
 		count = 0;
 		while(pExport != NULL)
 		{
-			COutput::Printf(LEVEL_INFO, "Export %d, Name %s, Functions %d, Variables %d, flags %08X\n", 
+			COutput::Printf(LEVEL_INFO, "Export %d, Name %s, Functions %d, Variables %d, flags %08X\n",
 					count++, pExport->name, pExport->f_count, pExport->v_count, pExport->stub.flags);
 
 			if(pExport->f_count > 0)
@@ -532,7 +532,7 @@ void output_importexport(const char *file, CNidMgr *pNids)
 				for(iLoop = 0; iLoop < pExport->f_count; iLoop++)
 				{
 
-					COutput::Printf(LEVEL_INFO, "0x%08X [0x%08X] - %s", pExport->funcs[iLoop].nid, 
+					COutput::Printf(LEVEL_INFO, "0x%08X [0x%08X] - %s", pExport->funcs[iLoop].nid,
 							pExport->funcs[iLoop].addr, pExport->funcs[iLoop].name);
 					if(g_aliasOutput)
 					{
@@ -560,7 +560,7 @@ void output_importexport(const char *file, CNidMgr *pNids)
 				COutput::Printf(LEVEL_INFO, "Variables:\n");
 				for(iLoop = 0; iLoop < pExport->v_count; iLoop++)
 				{
-					COutput::Printf(LEVEL_INFO, "0x%08X [0x%08X] - %s\n", pExport->vars[iLoop].nid, 
+					COutput::Printf(LEVEL_INFO, "0x%08X [0x%08X] - %s\n", pExport->vars[iLoop].nid,
 							pExport->vars[iLoop].addr, pExport->vars[iLoop].name);
 				}
 			}
@@ -573,7 +573,7 @@ void output_importexport(const char *file, CNidMgr *pNids)
 		count = 0;
 		while(pImport != NULL)
 		{
-			COutput::Printf(LEVEL_INFO, "Import %d, Name %s, Functions %d, Variables %d, flags %08X\n", 
+			COutput::Printf(LEVEL_INFO, "Import %d, Name %s, Functions %d, Variables %d, flags %08X\n",
 					count++, pImport->name, pImport->f_count, pImport->v_count, pImport->stub.flags);
 
 			if(pImport->f_count > 0)
@@ -581,8 +581,8 @@ void output_importexport(const char *file, CNidMgr *pNids)
 				COutput::Printf(LEVEL_INFO, "Functions:\n");
 				for(iLoop = 0; iLoop < pImport->f_count; iLoop++)
 				{
-					COutput::Printf(LEVEL_INFO, "0x%08X [0x%08X] - %s\n", 
-							pImport->funcs[iLoop].nid, pImport->funcs[iLoop].addr, 
+					COutput::Printf(LEVEL_INFO, "0x%08X [0x%08X] - %s\n",
+							pImport->funcs[iLoop].nid, pImport->funcs[iLoop].addr,
 							pImport->funcs[iLoop].name);
 				}
 			}
@@ -592,8 +592,8 @@ void output_importexport(const char *file, CNidMgr *pNids)
 				COutput::Printf(LEVEL_INFO, "Variables:\n");
 				for(iLoop = 0; iLoop < pImport->v_count; iLoop++)
 				{
-					COutput::Printf(LEVEL_INFO, "0x%08X [0x%08X] - %s\n", 
-							pImport->vars[iLoop].nid, pImport->vars[iLoop].addr, 
+					COutput::Printf(LEVEL_INFO, "0x%08X [0x%08X] - %s\n",
+							pImport->vars[iLoop].nid, pImport->vars[iLoop].addr,
 							pImport->vars[iLoop].name);
 				}
 			}
@@ -698,7 +698,7 @@ void write_stub(const char *szDirectory, PspLibExport *pExp, CProcessPrx *pPrx)
 }
 
 void write_ent(PspLibExport *pExp, FILE *fp)
-{      
+{
 	char szPath[MAXPATH];
 	COutput::Printf(LEVEL_DEBUG, "Library %s\n", pExp->name);
 	if(fp != NULL)
@@ -780,12 +780,12 @@ void write_stub_new(const char *szDirectory, PspLibExport *pExp, CProcessPrx *pP
 			{
 				if(strcmp(pSym->name.c_str(), pExp->funcs[i].name))
 				{
-					fprintf(fp, "\tIMPORT_FUNC_WITH_ALIAS\t\"%s\",0x%08X,%s,%s\n", pExp->name, 
+					fprintf(fp, "\tIMPORT_FUNC_WITH_ALIAS\t\"%s\",0x%08X,%s,%s\n", pExp->name,
 							pExp->funcs[i].nid, pExp->funcs[i].name, pSym->name.c_str());
 				}
 				else
 				{
-					fprintf(fp, "\tIMPORT_FUNC_WITH_ALIAS\t\"%s\",0x%08X,%s,%s\n", pExp->name, 
+					fprintf(fp, "\tIMPORT_FUNC_WITH_ALIAS\t\"%s\",0x%08X,%s,%s\n", pExp->name,
 							pExp->funcs[i].nid, pExp->funcs[i].name, pSym->alias[0].c_str());
 				}
 			}
@@ -796,7 +796,7 @@ void write_stub_new(const char *szDirectory, PspLibExport *pExp, CProcessPrx *pP
 
 			fprintf(fp, "#endif\n");
 		}
-			
+
 		fclose(fp);
 	}
 }
@@ -948,7 +948,7 @@ int main(int argc, char **argv)
 
 		if(g_pNamefile != NULL)
 		{
-			(void) nids.AddJsonFile(g_pNamefile);
+			(void) nids.AddNIDFile(g_pNamefile);
 		}
 		if(g_pFuncfile != NULL)
 		{
@@ -963,7 +963,7 @@ int main(int argc, char **argv)
 		{
 			CNidMgr nidData;
 
-			if(nidData.AddJsonFile(g_ppInfiles[0]))
+			if(nidData.AddNIDFile(g_ppInfiles[0]))
 			{
 				output_stubs_xml(&nidData);
 			}

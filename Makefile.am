@@ -7,7 +7,7 @@ bin_PROGRAMS = prxtool
 TINYXML = $(srcdir)/tinyxml
 INLCUDES = -I $(srcdir) -I $(TINYXML)
 
-LIBS = -lcapstone -ljansson
+LIBS = -lcapstone -ljansson -lyaml
 
 prxtool_SOURCES = \
 	main.C \
@@ -26,7 +26,10 @@ prxtool_SOURCES = \
 	$(TINYXML)/tinyxml.cpp \
 	$(TINYXML)/tinyxmlparser.cpp \
 	$(TINYXML)/tinystr.cpp \
-	$(TINYXML)/tinyxmlerror.cpp
+	$(TINYXML)/tinyxmlerror.cpp \
+	vita-import.c \
+	yamltree.c \
+	yamltreeutil.c
 
 noinst_HEADERS = \
 	types.h \
@@ -45,7 +48,10 @@ noinst_HEADERS = \
 	disasm.h \
 	getargs.h \
 	$(TINYXML)/tinystr.h \
-	$(TINYXML)/tinyxml.h
+	$(TINYXML)/tinyxml.h \
+	vita-import.h \
+	yamltree.h \
+	yamltreeutil.h
 
 EXTRA_DIST = \
 	$(ACLOCAL_FILES) \

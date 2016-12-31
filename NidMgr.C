@@ -9,8 +9,11 @@
 #include <stdlib.h>
 #include <jansson.h>
 #include <tinyxml/tinyxml.h>
+#include "yamltree.h"
+#include "yamltreeutil.h"
 #include "output.h"
 #include "NidMgr.h"
+#include "vita-import.h"
 #include "prxtypes.h"
 
 struct SyslibEntry
@@ -129,7 +132,7 @@ const char *CNidMgr::SearchLibs(const char *lib, u32 nid)
 			}
 		}
 
-		if(m_pMasterNids) 
+		if(m_pMasterNids)
 		{
 			pLib = NULL;
 		}
@@ -220,7 +223,7 @@ void CNidMgr::ProcessLibrary(TiXmlElement *pLibrary, const char *prx_name, const
 	int fCount;
 	int vCount;
 	bool blMasterNids = false;
-	
+
 	assert(prx_name != NULL);
 	assert(prx != NULL);
 
@@ -381,7 +384,7 @@ bool CNidMgr::AddXmlFile(const char *szFilename)
 	return blRet;
 }
 
-int CNidMgr::vita_imports_loads(FILE *text, int verbose)
+bool CNidMgr::vita_imports_load_json(FILE *text, int verbose)
 {
 	bool blMasterNids = false;
 
@@ -392,13 +395,13 @@ int CNidMgr::vita_imports_loads(FILE *text, int verbose)
 	libs = json_loadf(text, 0, &error);
 	if (libs == NULL) {
 		COutput::Printf(LEVEL_ERROR, "error: on line %d: %s\n", error.line, error.text);
-		return 0;
+		return false;
 	}
 
 	if (!json_is_object(libs)) {
 		COutput::Printf(LEVEL_ERROR, "error: modules is not an object\n");
 		json_decref(libs);
-		return 0;
+		return false;
 	}
 
 	int i, j, k;
@@ -412,21 +415,21 @@ int CNidMgr::vita_imports_loads(FILE *text, int verbose)
 		if (!json_is_object(lib_data)) {
 			COutput::Printf(LEVEL_ERROR, "error: library %s is not an object\n", lib_name);
 			json_decref(libs);
-			return 0;
+			return false;
 		}
 
 		nid = json_object_get(lib_data, "nid");
 		if (!json_is_integer(nid)) {
 			COutput::Printf(LEVEL_ERROR, "error: library %s: nid is not an integer\n", lib_name);
 			json_decref(libs);
-			return 0;
+			return false;
 		}
 
 		modules = json_object_get(lib_data, "modules");
 		if (!json_is_object(modules)) {
 			COutput::Printf(LEVEL_ERROR, "error: library %s: module is not an object\n", lib_name);
 			json_decref(libs);
-			return 0;
+			return false;
 		}
 
 		j = -1;
@@ -439,28 +442,28 @@ int CNidMgr::vita_imports_loads(FILE *text, int verbose)
 			if (!json_is_object(mod_data)) {
 				COutput::Printf(LEVEL_ERROR, "error: module %s is not an object\n", mod_name);
 				json_decref(libs);
-				return 0;
+				return false;
 			}
 
 			nid = json_object_get(mod_data, "nid");
 			if (!json_is_integer(nid)) {
 				COutput::Printf(LEVEL_ERROR, "error: module %s: nid is not an integer\n", mod_name);
 				json_decref(libs);
-				return 0;
+				return false;
 			}
 
 			kernel = json_object_get(mod_data, "kernel");
 			if (!json_is_boolean(kernel)) {
 				COutput::Printf(LEVEL_ERROR, "error: module %s: kernel is not a boolean\n", mod_name);
 				json_decref(libs);
-				return 0;
+				return false;
 			}
 
 			functions = json_object_get(mod_data, "functions");
 			if (!json_is_object(functions)) {
 				COutput::Printf(LEVEL_ERROR, "error: module %s: functions is not an array\n", mod_name);
 				json_decref(libs);
-				return 0;
+				return false;
 			}
 
 			variables = json_object_get(mod_data, "variables");
@@ -471,7 +474,7 @@ int CNidMgr::vita_imports_loads(FILE *text, int verbose)
 			if (has_variables && !json_is_object(variables)) {
 				COutput::Printf(LEVEL_ERROR, "error: module %s: variables is not an array\n", mod_name);
 				json_decref(libs);
-				return 0;
+				return false;
 			}
 
 			LibraryEntry *pLib;
@@ -489,7 +492,7 @@ int CNidMgr::vita_imports_loads(FILE *text, int verbose)
 					blMasterNids = true;
 					COutput::Printf(LEVEL_DEBUG, "Found master NID table\n");
 				}
-				
+
 				int fCount = json_object_size(functions);
 				int vCount = json_object_size(variables);
 
@@ -513,7 +516,7 @@ int CNidMgr::vita_imports_loads(FILE *text, int verbose)
 							if (!json_is_integer(target_nid)) {
 								COutput::Printf(LEVEL_ERROR, "error: function %s: nid is not an integer\n", target_name);
 								json_decref(libs);
-								return 0;
+								return false;
 							}
 
 							pLib->pNids[iLoop].pParentLib = pLib;
@@ -531,7 +534,7 @@ int CNidMgr::vita_imports_loads(FILE *text, int verbose)
 								if (!json_is_integer(target_nid)) {
 									COutput::Printf(LEVEL_ERROR, "error: variable %s: nid is not an integer\n", target_name);
 									json_decref(libs);
-									return 0;
+									return false;
 								}
 
 								pLib->pNids[iLoop].pParentLib = pLib;
@@ -561,20 +564,367 @@ int CNidMgr::vita_imports_loads(FILE *text, int verbose)
 		}
 	}
 
-	return 1;
+	return true;
 }
 
-bool CNidMgr::AddJsonFile(const char *szFilename)
-{
-	FILE *fp = fopen(szFilename, "r");
-	if (fp == NULL) {
-		COutput::Printf(LEVEL_ERROR, "Error: could not open %s\n", szFilename);
-		return NULL;
+int process_import_functions(yaml_node *parent, yaml_node *child, vita_imports_module_t *library) {
+	if (!is_scalar(parent)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting function to be scalar, got '%s'.\n"
+			, parent->position.line
+			, parent->position.column
+			, node_type_str(parent));
+
+		return -1;
 	}
 
-	vita_imports_loads(fp, 1);
+	yaml_scalar *key = &parent->data.scalar;
+
+	// create an export symbol for this function
+	vita_imports_stub_t *symbol = vita_imports_stub_new(key->value,0);
+
+	if (!is_scalar(child)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting function value to be scalar, got '%s'.\n"
+			, child->position.line
+			, child->position.column
+			, node_type_str(child));
+
+		return -1;
+	}
+
+	if (process_32bit_integer(child, &symbol->NID) < 0) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, could not convert function nid '%s' to 32 bit integer.\n", child->position.line, child->position.column, child->data.scalar.value);
+		return -1;
+	}
+	// append to list
+	library->functions = (vita_imports_stub_t**)realloc(library->functions, (library->n_functions+1)*sizeof(vita_imports_stub_t*));
+	library->functions[library->n_functions++] = symbol;
+
+	return 0;
+}
+
+int process_import_variables(yaml_node *parent, yaml_node *child, vita_imports_module_t *library) {
+	if (!is_scalar(parent)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting variable to be scalar, got '%s'.\n"
+			, parent->position.line
+			, parent->position.column
+			, node_type_str(parent));
+
+		return -1;
+	}
+
+	yaml_scalar *key = &parent->data.scalar;
+
+	// create an export symbol for this variable
+	vita_imports_stub_t *symbol = vita_imports_stub_new(key->value,0);
+
+	if (!is_scalar(child)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting variable value to be scalar, got '%s'.\n"
+			, child->position.line
+			, child->position.column
+			, node_type_str(child));
+
+		return -1;
+	}
+
+	if (process_32bit_integer(child, &symbol->NID) < 0) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, could not convert variable nid '%s' to 32 bit integer.\n", child->position.line, child->position.column, child->data.scalar.value);
+		return -1;
+	}
+	// append to list
+	library->variables = (vita_imports_stub_t**)realloc(library->variables, (library->n_variables+1)*sizeof(vita_imports_stub_t*));
+	library->variables[library->n_variables++] = symbol;
+
+	return 0;
+}
+
+int process_library(yaml_node *parent, yaml_node *child, vita_imports_module_t *library) {
+	if (!is_scalar(parent)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting library key to be scalar, got '%s'.\n", parent->position.line, parent->position.column, node_type_str(parent));
+		return -1;
+	}
+
+	yaml_scalar *key = &parent->data.scalar;
+
+	if (strcmp(key->value, "kernel") == 0) {
+		if (!is_scalar(child)) {
+			COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting library syscall flag to be scalar, got '%s'.\n", child->position.line, child->position.column, node_type_str(child));
+			return -1;
+		}
+
+		if (process_bool(child, &library->is_kernel) < 0) {
+			COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, could not convert library flag to boolean, got '%s'. expected 'true' or 'false'.\n", child->position.line, child->position.column, child->data.scalar.value);
+			return -1;
+		}
+	}
+	else if (strcmp(key->value, "functions") == 0) {
+		if (yaml_iterate_mapping(child, (mapping_functor)process_import_functions, library) < 0)
+			return -1;
+	}
+	else if (strcmp(key->value, "variables") == 0) {
+		if (yaml_iterate_mapping(child, (mapping_functor)process_import_variables, library) < 0)
+			return -1;
+	}
+	else if (strcmp(key->value, "nid") == 0) {
+		if (!is_scalar(child)) {
+			COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting library nid to be scalar, got '%s'.\n", child->position.line, child->position.column, node_type_str(child));
+			return -1;
+		}
+
+		if (process_32bit_integer(child, &library->NID) < 0) {
+			COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, could not convert library nid '%s' to 32 bit integer.\n", child->position.line, child->position.column, child->data.scalar.value);
+			return -1;
+		}
+	}
+	else {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, unrecognised library key '%s'.\n", child->position.line, child->position.column, key->value);
+		return -1;
+	}
+
+	return 0;
+}
+
+int process_libraries(yaml_node *parent, yaml_node *child, vita_imports_lib_t *import) {
+	if (!is_scalar(parent)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting library key to be scalar, got '%s'.\n", parent->position.line, parent->position.column, node_type_str(parent));
+		return -1;
+	}
+
+	yaml_scalar *key = &parent->data.scalar;
+
+	vita_imports_module_t *library = vita_imports_module_new("",false,0,0,0);
+
+	// default values
+	library->name = strdup(key->value);
+
+	if (yaml_iterate_mapping(child, (mapping_functor)process_library, library) < 0)
+		return -1;
+
+	import->modules = (vita_imports_module_t**)realloc(import->modules, (import->n_modules+1)*sizeof(vita_imports_module_t*));
+	import->modules[import->n_modules++] = library;
+
+	return 0;
+}
+
+int process_import(yaml_node *parent, yaml_node *child, vita_imports_lib_t *import) {
+	if (!is_scalar(parent)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting module key to be scalar, got '%s'.\n", parent->position.line, parent->position.column, node_type_str(parent));
+		return -1;
+	}
+
+	yaml_scalar *key = &parent->data.scalar;
+
+	if (strcmp(key->value, "nid") == 0) {
+		if (!is_scalar(child)) {
+			COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting module nid to be scalar, got '%s'.\n", child->position.line, child->position.column, node_type_str(child));
+			return -1;
+		}
+
+		if (process_32bit_integer(child, &import->NID) < 0) {
+			COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, could not convert module nid '%s' to 32 bit integer.\n", child->position.line, child->position.column, child->data.scalar.value);
+			return -1;
+		}
+	}
+	else if (strcmp(key->value, "libraries") == 0) {
+
+		if (yaml_iterate_mapping(child, (mapping_functor)process_libraries, import) < 0)
+			return -1;
+
+	}
+	else {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, unrecognised module key '%s'.\n", child->position.line, child->position.column, key->value);
+		return -1;
+	}
+
+	return 0;
+}
+
+int process_import_list(yaml_node *parent, yaml_node *child, vita_imports_t *imports) {
+	if (!is_scalar(parent)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting modules key to be scalar, got '%s'.\n", parent->position.line, parent->position.column, node_type_str(parent));
+		return -1;
+	}
+
+	yaml_scalar *key = &parent->data.scalar;
+
+	vita_imports_lib_t *import = vita_imports_lib_new(key->value,0,0);
+
+	if (yaml_iterate_mapping(child, (mapping_functor)process_import, import) < 0)
+		return -1;
+
+	imports->libs = (vita_imports_lib_t**)realloc(imports->libs, (imports->n_libs+1)*sizeof(vita_imports_lib_t*));
+	imports->libs[imports->n_libs++] = import;
+	return 0;
+}
+
+bool CNidMgr::read_vita_imports_yml(yaml_document *doc)
+{
+	bool blMasterNids = false;
+
+	if (!is_mapping(doc)) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting root node to be a mapping, got '%s'.\n", doc->position.line, doc->position.column, node_type_str(doc));
+		return false;
+	}
+
+	yaml_mapping *root = &doc->data.mapping;
+
+	// check we only have one entry
+	if (root->count < 1) {
+		COutput::Printf(LEVEL_ERROR, "error: line: %zd, column: %zd, expecting at least one entry within root mapping, got %zd.\n", doc->position.line, doc->position.column, root->count);
+		return false;
+	}
+
+	vita_imports_t *imports  = vita_imports_new(0);
+	if (imports == NULL)
+		return false;
+
+	for(int n = 0; n < root->count; n++){
+		// check lhs is a scalar
+		if (is_scalar(root->pairs[n]->lhs)) {
+
+			if (strcmp(root->pairs[n]->lhs->data.scalar.value, "modules")==0) {
+				if (yaml_iterate_mapping(root->pairs[n]->rhs, (mapping_functor)process_import_list, imports) < 0)
+					return false;
+				continue;
+			}
+
+			COutput::Printf(LEVEL_WARNING, "warning: line: %zd, column: %zd, unknow tag '%s'.\n", root->pairs[n]->lhs->position.line, root->pairs[n]->lhs->position.column, root->pairs[n]->lhs->data.scalar.value);
+
+		}
+
+	}
+
+	/* Add imports to the NID list */
+	for (int i = 0; i < imports->n_libs; i++) {
+		vita_imports_lib_t *lib = imports->libs[i];
+
+		for (int j = 0; j < lib->n_modules; j++) {
+			vita_imports_module_t *mod = lib->modules[j];
+			int fCount = mod->n_functions;
+			int vCount = mod->n_variables;
+
+			LibraryEntry *pLib;
+			SAFE_ALLOC(pLib, LibraryEntry);
+			if (!pLib)
+				continue;
+
+			memset(pLib, 0, sizeof(LibraryEntry));
+			strcpy(pLib->lib_name, mod->name);
+			strcpy(pLib->prx_name, mod->name);
+			strcpy(pLib->prx, mod->name);
+			pLib->vcount = vCount;
+			pLib->fcount = fCount;
+			pLib->entry_count = vCount + fCount;
+
+			if(strcmp(pLib->lib_name, MASTER_NID_MAPPER) == 0) {
+				blMasterNids = true;
+				COutput::Printf(LEVEL_DEBUG, "Found master NID table\n");
+			}
+
+			SAFE_ALLOC(pLib->pNids, LibraryNid[vCount+fCount]);
+			if (!pLib->pNids)
+				continue;
+
+			memset(pLib->pNids, 0, sizeof(LibraryNid) * (vCount+fCount));
+
+			int iLoop;
+
+			/* Functions */
+			iLoop = 0;
+			for (int k = 0; k < fCount; k++) {
+				vita_imports_stub_t *func = mod->functions[k];
+
+				pLib->pNids[iLoop].pParentLib = pLib;
+				pLib->pNids[iLoop].nid = func->NID;
+				strcpy(pLib->pNids[iLoop].name, func->name);
+
+				iLoop++;
+			}
+
+			/* Variables */
+			for (int k = 0; k < vCount; k++) {
+				vita_imports_stub_t *var = mod->variables[k];
+
+				pLib->pNids[iLoop].pParentLib = pLib;
+				pLib->pNids[iLoop].nid = var->NID;
+				strcpy(pLib->pNids[iLoop].name, var->name);
+
+				iLoop++;
+			}
+
+			if (m_pLibHead == NULL) {
+				m_pLibHead = pLib;
+			} else {
+				pLib->pNext = m_pLibHead;
+				m_pLibHead = pLib;
+			}
+
+			if (blMasterNids) {
+				m_pMasterNids = pLib;
+			}
+		}
+	}
+
+	vita_imports_free(imports);
+
+	return true;
+
+}
+
+bool CNidMgr::vita_imports_load_yml(FILE *text, int verbose)
+{
+	uint32_t nid = 0;
+	yaml_error error = {0};
+
+	yaml_tree *tree = parse_yaml_stream(text, &error);
+
+	if (!tree)
+	{
+		COutput::Printf(LEVEL_ERROR, "error: %s\n", error.problem);
+		free(error.problem);
+		return false;
+	}
+
+	if (tree->count != 1)
+	{
+		COutput::Printf(LEVEL_ERROR, "error: expecting a single yaml document, got: %zd\n", tree->count);
+		// TODO: cleanup tree
+		return false;
+	}
+
+	return read_vita_imports_yml(tree->docs[0]);
+}
+
+bool CNidMgr::AddNIDFile(const char *szFilename)
+{
+	FILE *fp;
+	bool ret;
+	const char *dot = strrchr(szFilename, '.');
+
+	if (!dot) {
+		COutput::Printf(LEVEL_ERROR, "Error: unknown NID file type %s\n", szFilename);
+		return false;
+	}
+
+	fp = fopen(szFilename, "r");
+	if (fp == NULL) {
+		COutput::Printf(LEVEL_ERROR, "Error: could not open %s\n", szFilename);
+		return false;
+	}
+
+	if (!strcmp(dot + 1, "xml")) {
+		ret = AddXmlFile(szFilename);
+	} else if (!strcmp(dot + 1, "json")) {
+		ret = vita_imports_load_json(fp, 1);
+	} else if (!strcmp(dot + 1, "yml")) {
+		ret = vita_imports_load_yml(fp, 1);
+	} else {
+		COutput::Printf(LEVEL_ERROR, "Error: unknown NID file type %s\n", szFilename);
+		ret = false;
+	}
 
 	fclose(fp);
+
+	return ret;
 }
 
 /* Find the name based on our list of names */
@@ -628,7 +978,7 @@ static char *strip_whitesp(char *str)
 	{
 		return NULL;
 	}
-	
+
 	return str;
 }
 

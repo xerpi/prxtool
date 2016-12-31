@@ -11,6 +11,7 @@
 
 #include "types.h"
 #include <tinyxml/tinyxml.h>
+#include "yamltree.h"
 #include <vector>
 
 #define LIB_NAME_MAX 64
@@ -86,14 +87,19 @@ class CNidMgr
 	int CountNids(TiXmlElement *pElement, const char *name);
 	void ProcessLibrary(TiXmlElement *pLibrary, const char *prx_name, const char *prx);
 	void ProcessPrxfile(TiXmlElement *pPrxfile);
+
+	bool read_vita_imports_yml(yaml_document *doc);
+
+	bool AddXmlFile(const char *szFilename);
+	bool vita_imports_load_json(FILE *text, int verbose);
+	bool vita_imports_load_yml(FILE *text, int verbose);
+
 public:
 	CNidMgr();
 	~CNidMgr();
 	const char *FindLibName(const char *lib, u32 nid);
 	const char *FindDependancy(const char *lib);
-	bool AddXmlFile(const char *szFilename);
-	bool AddJsonFile(const char *szFilename);
-	int vita_imports_loads(FILE *text, int verbose);
+	bool AddNIDFile(const char *szFilename);
 	LibraryEntry *GetLibraries(void);
 	bool AddFunctionFile(const char *szFilename);
 	FunctionType *FindFunctionType(const char *name);
