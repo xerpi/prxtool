@@ -54,11 +54,11 @@ void SetThumbMode(bool mode)
 
 #include "output.h"
 
-void loadDisasm(uint8_t *code, int code_size, uint32_t address) {
+void loadDisasm(const uint8_t *code, size_t code_size, uint64_t address) {
 	cs_insn *insn;
 	size_t count;
 
-	int offset = 0;
+	uint32_t offset = 0;
 
 	static csh handle;
 	cs_err err = cs_open(CS_ARCH_ARM, CS_MODE_THUMB, &handle);
@@ -69,33 +69,22 @@ void loadDisasm(uint8_t *code, int code_size, uint32_t address) {
 
 	cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
-	while (offset < code_size) {
-		int size = 0x1000;
-		count = cs_disasm(handle, code + offset, size, address + offset, 0, &insn);
-		if (count) {
-			size_t j;
-			for (j = 0; j < count; j++) {
+	insn = cs_malloc(handle);
 
-				DisasmEntry *s = new DisasmEntry;
-				s->insn = &insn[j];
+	// disassemble one instruction a time & store the result into @insn variable above
+	while (cs_disasm_iter(handle, &code, &code_size, &address, insn)) {
+		// analyze disassembled instruction in @insn variable ...
+		// NOTE: @code, @code_size & @address variables are all updated
+		// to point to the next instruction after each iteration.
 
-				g_disasm[insn[j].address] = s;
-			}
+		DisasmEntry *s = new DisasmEntry;
+		s->insn = insn;
 
-			size = insn[j-1].address + insn[j-1].size - insn[0].address;
+		g_disasm[insn->address] = s;
 
-			// free memory allocated by cs_disasm()
-			// cs_free(insn, count);
-			
-			if (size == 0)
-				break;
-			
-			offset += size;
-		} else {
-			offset += 2;
-		}
+		insn = cs_malloc(handle);
 	}
-	
+
 	// cs_close(&handle);
 }
 
@@ -189,7 +178,7 @@ int disasmIsBranch(unsigned int opcode, unsigned int *PC, unsigned int *dwTarget
 				{
 					if (strcmp(insn->mnemonic, "bfi") != 0 && strcmp(insn->mnemonic, "bkpt") != 0 && strncmp(insn->mnemonic, "bic", 3) != 0) {
 						type = INSTR_TYPE_LOCAL;
-						
+
 						if (strcmp(insn->mnemonic, "bl") == 0 || strcmp(insn->mnemonic, "blx") == 0) {
 							type = INSTR_TYPE_FUNC;
 						}
@@ -209,13 +198,13 @@ int disasmIsBranch(unsigned int opcode, unsigned int *PC, unsigned int *dwTarget
 				else if(insn->mnemonic[0] == 'c' && insn->mnemonic[1] == 'b')
 				{
 					type = INSTR_TYPE_LOCAL;
-					
+
 					if(dwTarget)
 					{
 						*dwTarget = op->imm;
 					}
 				}
-				
+
 				break;
 			}
 		}
@@ -344,7 +333,7 @@ int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size
 
 		if (movw[slot] != 0) {
 			unsigned int addr = (movt[slot] << 16) | (movw[slot] & 0xFFFF);
-			
+
 			if (addr >= base && addr < base + size) {
 				if (addr < data_addr) {
 					addr--;
@@ -453,7 +442,7 @@ void disasmPrintOpts(void)
 	printf("Disassembler Options:\n");
 	for(i = 0; i < DISASM_OPT_MAX; i++)
 	{
-		printf("%c : %-3s - %s \n", g_disopts[i].opt, *g_disopts[i].value ? "on" : "off", 
+		printf("%c : %-3s - %s \n", g_disopts[i].opt, *g_disopts[i].value ? "on" : "off",
 				g_disopts[i].name);
 	}
 }
@@ -584,7 +573,7 @@ const char *disasmInstruction(unsigned int opcode, unsigned int *PC, unsigned in
 	char addr[1024];
 	int size;
 	int i;
-	
+
 	sprintf(addr, "0x%08X", *PC);
 	if((g_syms) && (g_symaddr))
 	{
@@ -608,7 +597,7 @@ const char *disasmInstruction(unsigned int opcode, unsigned int *PC, unsigned in
 
 	strcpy(mnemonic, insn->mnemonic);
 	strcpy(args, insn->op_str);
-	
+
 	name = mnemonic;
 
 	// Replace registers

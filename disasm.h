@@ -96,6 +96,6 @@ void disasmSetXmlOutput();
 int disasmAddStringRef(unsigned int opcode, unsigned int base, unsigned int size, unsigned int PC, ImmMap &imms, SymbolMap &syms, int data_addr, u32 data_base, u32 data_base_size);
 void resetMovwMovt();
 
-void loadDisasm(uint8_t *code, int code_size, uint32_t address);
+void loadDisasm(const uint8_t *code, size_t code_size, uint64_t address);
 
 #endif
