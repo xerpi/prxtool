@@ -14,6 +14,9 @@ AC_PROG_CXX
 AC_PROG_CC
 
 # Checks for libraries.
+PKG_CHECK_MODULES(CAPSTONE, capstone)
+PKG_CHECK_MODULES(JANSSON, jansson)
+PKG_CHECK_MODULES(YAML, yaml-0.1)
 
 # Checks for header files.
 AC_HEADER_STDC

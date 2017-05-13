@@ -5,9 +5,9 @@ AM_CFLAGS = -Wall
 bin_PROGRAMS = prxtool
 
 TINYXML = $(srcdir)/tinyxml
-INLCUDES = -I $(srcdir) -I $(TINYXML)
+INLCUDES = -I $(srcdir) -I $(TINYXML) $(CAPSTONE_CFLAGS) $(YAML_CFLAGS)
 
-LIBS = -lcapstone -ljansson -lyaml
+LIBS = $(CAPSTONE_LIBS) $(JANSSON_LIBS) $(YAML_LIBS)
 
 prxtool_SOURCES = \
 	main.C \
