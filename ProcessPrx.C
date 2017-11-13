@@ -320,6 +320,16 @@ int CProcessPrx::LoadSingleExport(PspModuleExport *pExport, u32 addr)
 			pLib->v_count = pLib->stub.v_count;
 			pLib->f_count = pLib->stub.f_count;
 
+			if (pLib->v_count > PSP_MAX_V_ENTRIES) {
+				COutput::Printf(LEVEL_ERROR, "Library %s variable count (%d) is greater than the maximum (%d)\n",
+					pLib->name, pLib->v_count, PSP_MAX_V_ENTRIES);
+				break;
+			} else  if (pLib->f_count > PSP_MAX_F_ENTRIES) {
+				COutput::Printf(LEVEL_ERROR, "Library %s function count (%d) is greater than the maximum (%d)\n",
+					pLib->name, pLib->f_count, PSP_MAX_F_ENTRIES);
+				break;
+			}
+
 			for(iLoop = 0; iLoop < pLib->f_count; iLoop++)
 			{
 				pLib->funcs[iLoop].type = PSP_ENTRY_FUNC;
